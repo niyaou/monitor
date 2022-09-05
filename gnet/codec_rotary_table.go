@@ -1,20 +1,20 @@
 package gnet
 
-const (
-	ANGLE_SET_TITLE = "SET_angle"
-	ANGLE_SET_BODY  = "SET_angle_****.**_****.**_****.**"
-	ANGLE_TITLE     = "RED_angle"
-	ANGLE_BODY      = "RED_angle_****.**_****.**_****.**"
-	SPEED_TITLE     = "RED_speed"
-	SPEED_BODY      = "RED_speed_***.**_***.**_***.**"
-)
+// const (
+// 	ANGLE_SET_TITLE = "SET_angle"
+// 	ANGLE_SET_BODY  = "SET_angle_****.**_****.**_****.**"
+// 	ANGLE_TITLE     = "RED_angle"
+// 	ANGLE_BODY      = "RED_angle_****.**_****.**_****.**"
+// 	SPEED_TITLE     = "RED_speed"
+// 	SPEED_BODY      = "RED_speed_***.**_***.**_***.**"
+// )
 
 // 用了RingBuffer的连接的编解码接口
 // 流格式: Length+Data
 // 这里把编解码分成了2层
 // 第1层:从RingBuffer里取出原始包体数据
 // 第2层:对包数据执行实际的编解码操作
-type RotaryCodec struct {
+type RotaryTableCodec struct {
 	// 包头的编码接口,包头长度不能变
 	HeaderEncoder func(connection Connection, packet Packet, headerData []byte)
 	// 包体的编码接口
@@ -30,34 +30,32 @@ type RotaryCodec struct {
 	// packetHeaderSize PacketHeaderSize
 }
 
-func (_self *RotaryCodec) CreatePacketHeader(connection Connection, packet Packet, packetData []byte) PacketHeader {
+func (_self *RotaryTableCodec) CreatePacketHeader(connection Connection, packet Packet, packetData []byte) PacketHeader {
 	return NewDefaultPacketHeader(0, 0)
 }
 
-func (_self *RotaryCodec) PacketHeaderSize() uint32 {
-	ROTARY_TITLE := "RED_angle"
+func (_self *RotaryTableCodec) PacketHeaderSize() uint32 {
+	ROTARY_TITLE := "a"
 	// logger.Debug("读取数据头部长度  PacketHeaderSize %v   %v %v ", ROTARY_TITLE, int(unsafe.Sizeof(ROTARY_TITLE)), len(ROTARY_TITLE))
 	return uint32(len(ROTARY_TITLE))
 }
 
-func (_self *RotaryCodec) PacketBodySize(title string) uint32 {
+func (_self *RotaryTableCodec) PacketBodySize(title string) uint32 {
 	// logger.Debug("读取数据实体长度  PacketBodySize %v   %v", title, int(unsafe.Sizeof(ANGLE_BODY)))
 
-	switch title {
-	case ANGLE_TITLE:
-		return uint32(len(ANGLE_BODY)) - uint32(len(ANGLE_TITLE))
-	case ANGLE_SET_TITLE:
-		return uint32(len(ANGLE_SET_BODY)) - uint32(len(ANGLE_SET_TITLE))
-	case SPEED_TITLE:
-		return uint32(len(SPEED_BODY)) - uint32(len(SPEED_TITLE))
-	}
+	// switch title {
+	// case ANGLE_TITLE:
+	// 	return uint32(len(ANGLE_BODY)) - uint32(len(ANGLE_TITLE))
+	// case ANGLE_SET_TITLE:
+	// 	return uint32(len(ANGLE_SET_BODY)) - uint32(len(ANGLE_SET_TITLE))
+	// case SPEED_TITLE:
+	// 	return uint32(len(SPEED_BODY)) - uint32(len(SPEED_TITLE))
+	// }
 	return 0
 }
 
-func (_self *RotaryCodec) Encode(connection Connection, packet Packet) []byte {
-	// 优化思路:编码后的数据直接写入RingBuffer.sendBuffer,可以减少一些内存分配
-	if tcpConnection, ok := connection.(*TcpConnection); ok {
-		// packetHeaderSize := int(_self.PacketHeaderSize())
+func (_self *RotaryTableCodec) Encode(connection Connection, packet Packet) []byte {
+	if tcpConnection, ok := connection.(*SerialConnection); ok {
 		sendBuffer := tcpConnection.sendBuffer
 		var encodedData []byte
 		if _self.DataEncoder != nil {
@@ -65,42 +63,19 @@ func (_self *RotaryCodec) Encode(connection Connection, packet Packet) []byte {
 		} else {
 			encodedData = []byte(packet.GetStringData())
 		}
-		// encodedDataLen := 0
-		// for i, data := range encodedData {
-		// 	if i == 0 {
-		// 		continue
-		// 	}
-		// 	encodedDataLen += len(data)
-		// }
-
-		// packetHeader := NewDefaultPacketHeader(uint32(encodedDataLen), 0)
-		// writeBuffer := sendBuffer.WriteBuffer()
-		// if packetHeaderSize == DefaultPacketHeaderSize && len(writeBuffer) >= packetHeaderSize {
-
-		// 	packetHeader.WriteTo(writeBuffer)
-
-		// 	sendBuffer.SetWrited(packetHeaderSize)
-		// } else {
-		// 	logger.Debug("没有足够的连续空间可写,则能写多少写多少,有可能一部分写入尾部,一部分写入头部 %v   %v", 44, encodedData)
-
-		// }
-		// writedDataLen := 0
 		_, err := sendBuffer.Write(encodedData)
 		if err != nil {
 			logger.Debug("写入字符串数据失败 %v", encodedData)
 		}
-		// for _, data := range encodedData {
 
-		// 	writedDataLen += writed
-		// }
 		return nil
 	}
 
 	return []byte{}
 }
 
-func (_self *RotaryCodec) Decode(connection Connection, data []byte) (newPacket Packet, err error) {
-	if tcpConnection, ok := connection.(*TcpConnection); ok {
+func (_self *RotaryTableCodec) Decode(connection Connection, data []byte) (newPacket Packet, err error) {
+	if tcpConnection, ok := connection.(*SerialConnection); ok {
 		recvBuffer := tcpConnection.recvBuffer
 
 		// 先解码包头
@@ -124,10 +99,6 @@ func (_self *RotaryCodec) Decode(connection Connection, data []byte) (newPacket 
 				copy(packetHeaderData[n:], recvBuffer.buffer)
 			}
 			recvBuffer.SetReaded(packetHeaderSize)
-
-			// tcpConnection.curReadPacketHeader = &DefaultPacketHeader{}
-
-			// tcpConnection.curReadPacketHeader.ReadFrom(packetHeaderData)
 
 			PLCTitle := string(packetHeaderData)
 
@@ -167,20 +138,21 @@ func (_self *RotaryCodec) Decode(connection Connection, data []byte) (newPacket 
 	return nil, ErrNotSupport
 }
 
-func NewRotaryCodec(packetHeaderSize PacketHeaderSize) *RotaryCodec {
+func NewRotaryTableCodec(packetHeaderSize PacketHeaderSize) *RotaryTableCodec {
 	if packetHeaderSize == nil {
 		packetHeaderSize = func() uint32 {
 			return uint32(DefaultPacketHeaderSize)
 		}
 	}
-	codec := &RotaryCodec{}
+	codec := &RotaryTableCodec{}
 	codec.DataDecoder = codec.DecodePacket
 	// codec.packetHeaderSize = packetHeaderSize
 	return codec
 }
 
-func (_self *RotaryCodec) DecodePacket(connection Connection, packetHeader string, packetData []byte) Packet {
+func (_self *RotaryTableCodec) DecodePacket(connection Connection, packetHeader string, packetData []byte) Packet {
 	decodedPacketData := packetData
+
 	return NewDataPacket(nil, packetHeader+string(decodedPacketData))
 
 }

@@ -60,6 +60,8 @@ type BaseServerConfig struct {
 	ServerListenAddr string
 	// 服务器连接配置
 	ServerConnConfig ConnectionConfig
+	SerialName       string
+	SerialPort       uint
 }
 
 // 服务器基础流程

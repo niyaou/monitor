@@ -8,13 +8,15 @@ import (
 	"sync"
 	"time"
 
-	serial "github.com/tarm/goserial"
+	"github.com/jacobsa/go-serial/serial"
 	"google.golang.org/protobuf/proto"
 )
 
 type SerialConnection struct {
 	baseConnection
-	conn net.Conn
+	// conn net.Conn
+	conn io.ReadWriteCloser
+
 	// 防止执行多次关闭操作
 	closeOnce sync.Once
 	// 关闭回调
@@ -39,9 +41,11 @@ type SerialConnection struct {
 	readedHeadLen           uint32 //已经读取了的tcp头长度
 	readedDataLen           uint32 //已经读取了的TCP包DATA长度
 	isFixedHead             bool   //true: 接收固定长度head的tcp包，用于protobuf，  false:接收字符串
+	SerialName              string //串口名
+	SerialPort              uint   //串口码率
 }
 
-func NewSerialConnector(config *ConnectionConfig, address string, codec Codec, handler ConnectionHandler, isFixedHead bool) *SerialConnection {
+func NewSerialConnector(SerialName string, SerialPort uint, config *ConnectionConfig, codec Codec, handler ConnectionHandler, isFixedHead bool) *SerialConnection {
 	// logger.Info("---NewTcpConnector---++++++-")
 	if config.MaxPacketSize == 0 {
 		config.MaxPacketSize = MaxPacketDataSize
@@ -49,18 +53,18 @@ func NewSerialConnector(config *ConnectionConfig, address string, codec Codec, h
 	if config.MaxPacketSize > MaxPacketDataSize {
 		config.MaxPacketSize = MaxPacketDataSize
 	}
-	newConnection := createSerialConnection(config, address, codec, handler)
+	newConnection := createSerialConnection(SerialName, SerialPort, config, codec, handler)
 	newConnection.isConnector = true
 	newConnection.isFixedHead = isFixedHead
 
 	return newConnection
 }
 
-func createSerialConnection(config *ConnectionConfig, address string, codec Codec, handler ConnectionHandler) *SerialConnection {
+func createSerialConnection(SerialName string, SerialPort uint, config *ConnectionConfig, codec Codec, handler ConnectionHandler) *SerialConnection {
 	// logger.Info("---createTcpConnection---+++++++-")
 	newConnection := &SerialConnection{
 		baseConnection: baseConnection{
-			addr:         address,
+			addr:         "",
 			connectionId: newConnectionId(),
 			config:       config,
 			codec:        codec,
@@ -68,6 +72,8 @@ func createSerialConnection(config *ConnectionConfig, address string, codec Code
 		},
 		sendPacketCache: make(chan Packet, config.SendPacketCacheCap),
 	}
+	newConnection.SerialName = SerialName
+	newConnection.SerialPort = SerialPort
 	newConnection.tmpReadPacketHeader = codec.CreatePacketHeader(newConnection, nil, nil)
 	// logger.Info("---createTcpConnection---+++++++- %v %v", newConnection, newConnection.tmpReadPacketHeader)
 	return newConnection
@@ -96,11 +102,17 @@ func NewSerialConnectionAccept(conn net.Conn, config *ConnectionConfig, codec Co
 
 // 连接
 func (_self *SerialConnection) Connect(address string) bool {
+	options := serial.OpenOptions{
+		PortName:        _self.SerialName,
+		BaudRate:        _self.SerialPort,
+		DataBits:        8,
+		StopBits:        1,
+		MinimumReadSize: 4,
+	}
 
-	conn, err := net.DialTimeout("tcp", address, time.Second)
-	c := &serial.Config{Name: id, Baud: 115200}
-	//打开串口
-	s, err := serial.OpenPort(c)
+	// conn, err := net.DialTimeout("tcp", address, time.Second)
+	logger.Info("serial  Open %v %v", _self.SerialName, _self.SerialPort)
+	conn, err := serial.Open(options)
 	if err != nil {
 		_self.isConnected = false
 
@@ -129,6 +141,7 @@ func (_self *SerialConnection) Start(ctx context.Context, netMgrWg *sync.WaitGro
 		}()
 		if _self.isFixedHead {
 			_self.readLoop()
+			logger.Info("readLoop   %v %v", _self.SerialName, _self.SerialPort)
 		} else {
 			_self.readLoopString()
 		}
@@ -343,13 +356,13 @@ func (_self *SerialConnection) writeLoop(ctx context.Context) {
 			// logger.Info("ring buffer 有内容，需要写入")
 			// 可读数据有可能分别存在数组的尾部和头部,所以需要循环发送,有可能需要发送多次
 			for _self.isConnected && _self.sendBuffer.UnReadLength() > 0 {
-				if _self.config.WriteTimeout > 0 {
-					setTimeoutErr := _self.conn.SetWriteDeadline(time.Now().Add(time.Duration(_self.config.WriteTimeout) * time.Second))
-					if setTimeoutErr != nil {
-						logger.Debug("%v setTimeoutErr:%v", _self.GetConnectionId(), setTimeoutErr.Error())
-						return
-					}
-				}
+				// if _self.config.WriteTimeout > 0 {
+				// 	setTimeoutErr := _self.conn.SetWriteDeadline(time.Now().Add(time.Duration(_self.config.WriteTimeout) * time.Second))
+				// 	if setTimeoutErr != nil {
+				// 		logger.Debug("%v setTimeoutErr:%v", _self.GetConnectionId(), setTimeoutErr.Error())
+				// 		return
+				// 	}
+				// }
 				readBuffer := _self.sendBuffer.ReadBuffer()
 				writeCount, err := _self.conn.Write(readBuffer)
 				if err != nil {
@@ -483,7 +496,7 @@ func (_self *SerialConnection) LocalAddr() net.Addr {
 	if _self.conn == nil {
 		return nil
 	}
-	return _self.conn.LocalAddr()
+	return nil
 }
 
 // RemoteAddr returns the remote network address.

@@ -1,8 +1,8 @@
 {
   "ServerId": 101,
   "ClientListenAddr": "192.168.200.51:3000",
-  "SerialName": "COM3",
-  "SerialPort": "115200",
+  "SerialName": "COM1",
+  "SerialPort": 115200,
   "ClientConnConfig": {
     "SendPacketCacheCap": 32,
     "SendBufferSize": 20480,

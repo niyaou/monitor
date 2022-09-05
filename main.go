@@ -50,7 +50,7 @@ func main() {
 
 	// 根据命令行参数 创建不同的服务器实例
 	// for _, serverType := range []string{"radar", "rotary", "rotary_module", "monitor"} {
-	for _, serverType := range []string{"radar", "rotary", "rotary_module", "monitor"} {
+	for _, serverType := range []string{"rotary_table", "monitor"} {
 		server := createServer(serverType)
 		server.SetBroker(broker)
 		if !server.Init(ctx, fmt.Sprintf("%s.json", serverType)) {
@@ -133,6 +133,8 @@ func createServer(serverType string) internal.Server {
 		return new(communication.RotaryServer)
 	case "rotary_module":
 		return new(communication.RotaryModuleServer)
+	case "rotary_table":
+		return new(communication.RotaryTableServer)
 	}
 	panic("err server type")
 }
