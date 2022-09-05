@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package Rotary_Command;
+option go_package="./pb";
+
+
+
+
+message RotaryCommand
+{
+    string       commandPayload   = 1;  
+    uint32       moduleType   = 2;  
+  
+}

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package RadarFc2_AdcAcqData;
+option go_package="./pb";
+
+/** @brief  adc acquisition data type */
+enum AdcAcq_DataType
+{
+	RESERVED                = 0;   /* reserved type */
+	ADC_ACQ_TYPE_FRAME_HEAD = 1;   /* frame head type */
+	ADC_ACQ_TYPE_CHIRP_HEAD = 2;   /* chirp head type */
+	ADC_ACQ_TYPE_CHIRP_DATA = 3;   /* chirp data type */
+	ADC_ACQ_TYPE_CHIRP_TAIL = 4;   /* frame tail type */
+}
+
+/* @brief   Parameters used to define a frame head */
+message AdcAcq_FrameHeadType
+{
+	uint32  u32FrameStart = 1;
+    uint32  u32FrameSeq   = 2;
+    uint32  u32FrameLen   = 3;
+    uint64  u64LocalTime  = 4;
+    uint64  u64TimeStamp  = 5;
+    uint32  u32FrameInfo  = 6;
+    uint32  u32ChirpInfo  = 7;
+}
+
+/* @brief   Parameters used to define a chirp head */
+message AdcAcq_ChirpHeadType
+{
+	uint32  u32HeadInfo = 1;
+}
+
+/* @brief   Parameters used to define a chirp one channel sample data */
+message AdcAcq_ChirpChSampleDataType
+{
+    repeated uint32 u32aChSampleData =  1 ;   /* nrSamples */
+}
+
+/* @brief   Parameters used to define a frame end */
+message AdcAcq_FrameTailType
+{
+    uint32  u32EndFlag1 = 1;
+    uint32  u32EndFlag2 = 2;
+}
+
+/* @brief   Parameters used to define a adc acquisition data stream message */
+message AdcAcq_MsgType
+{
+    AdcAcq_DataType  enuAdcAcqDataType = 1;
+    bytes            pDataStream       = 2;
+}

@@ -1,0 +1,4 @@
+*.exe
+radar-monitor.exe
+go.sum
+*.dat

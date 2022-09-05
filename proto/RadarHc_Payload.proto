@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package RadarFc2_ParamCfg;
+option go_package="./pb";
+
+/** @brief  message type */
+enum MsgGenreType
+{
+	REQUEST  = 0;   /* request message */
+	RESPONSE = 1;   /* response message */
+}
+
+/** @brief  message model */
+enum MsgModelType
+{
+	RESERVED           = 0;   /* reserved message model */
+	RADAR_PARAM_CFG    = 1;   /* Radar parameter configuration message model */
+	RADAR_ADC_ACQ_DATA = 2;   /* Radar ADC acquisition data message model */
+}
+
+/** @brief  Payload message model for communication between radar ECU and host computer */
+message RadarHc_PayloadType
+{
+    uint32       u16ProjId   = 1;   /* project identification */
+    MsgGenreType enuMsgGenre = 2;   /* message type */
+	MsgModelType enuMsgModel = 3;   /* message Model */
+	bytes        pMsgStream  = 4;   /* message stream */
+}

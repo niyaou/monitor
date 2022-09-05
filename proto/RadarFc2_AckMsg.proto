@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package RadarFc2_AckMsg;
+option go_package="./pb";
+
+
+/* @brief  List of acknowledgement codes */
+enum RadarAckMsg_CodeType
+{
+	ACK_RESERVED    = 0;
+	ACK_UNDEFINED   = 1;
+	ACK_DECODE      = 2;
+	ACK_GENERAL     = 3;
+	ACK_WORK_STATE  = 4;
+}
+
+/* @brief  Radar acknowledge message type*/
+message RadarAckMsgType
+{
+	RadarAckMsg_CodeType   enuAckCode  = 1;
+	repeated uint32        u32aAckData = 2;
+}

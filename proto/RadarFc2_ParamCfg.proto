@@ -1,0 +1,277 @@
+syntax = "proto3";
+package RadarFc2_ParamCfg;
+option go_package="./pb";
+
+
+
+/* @brief  List of supported RX LPF Cutoff frequencies */
+enum TEF82xx_RxLpfCutOffType
+{
+	RX_LPF_CUTOFF_12_5MHZ = 0;
+	RX_LPF_CUTOFF_15MHZ   = 1;
+	RX_LPF_CUTOFF_20MHZ   = 2;
+	RX_LPF_CUTOFF_25MHZ   = 3;
+	RX_LPF_CUTOFF_WIDE    = 4;
+}
+
+/* @brief  List of supported RX HPF Cutoff frequencies */
+enum TEF82xx_RxHpfCutOffType
+{
+	RX_HPF_CUTOFF_100KHZ  = 0;
+	RX_HPF_CUTOFF_200KHZ  = 1;
+	RX_HPF_CUTOFF_300KHZ  = 2;
+	RX_HPF_CUTOFF_400KHZ  = 3;
+	RX_HPF_CUTOFF_800KHZ  = 4;
+	RX_HPF_CUTOFF_1600KHZ = 5;
+	RX_HPF_CUTOFF_3200KHZ = 6;
+}
+
+/* @brief  List of supported Phase Rotator Phase Code generation modes */
+enum TEF82xx_PRPCGenModeType
+{
+	PR_PCGEN_NO_CHANGE             = 0;
+	PR_PCGEN_REPLACE_MSB_WITH_QPSK = 1;
+	PR_PCGEN_ADD_QPSK_TO_MSB       = 2;
+}
+
+/* @brief  List of supported Phase Rotator DDMA modes */
+enum TEF82xx_DDMAModeSelType
+{
+	PR_DDMA_DISABLED          = 0;
+	PR_DDMA_FUNCTIONAL_MODE   = 1;
+	PR_DDMA_TEST_MODE         = 2;
+	PR_DDMA_TEST_MODE_NOCHIRP = 3;
+}
+
+/* @brief   Parameters used to define a chirp shape */
+message RFE_ChirpShapeType
+{
+    /* Time duration after the start of a chirp to when the ramp starts in ns steps */
+    uint32 u32TStart = 1;
+	
+    /* Time duration between chirp ramp start and the beginning of the acquisition window in ns steps */
+    uint32 u32TPreSampling = 2;
+	
+    /* Time duration after the acquisition window has finished and the end of the chirp ramp in ns steps */
+    uint32 u32TPostSampling = 3;
+	
+    /* Time duration (ns) needed for the ramp to come back to the start frequency (start frequency isn't programmable) */
+    uint32 u32TReturn = 4;
+	
+    /* Center frequency of the acquisition window in MHz */
+    uint32 u32CenterFrequency = 5;
+	
+    /* Frequency bandwidth that the chirp will encompass during the acquisition windows in MHz */
+    uint32 u32AcqBandwidth = 6;	
+	
+    /* Bit field indicating which of the transmit channels are enabled */
+    uint32 u8TxChannelEnable = 7;
+	
+    /* Transmit channel power in units specific to the front end device */
+    repeated uint32 u32aTxChannelPower = 8;
+	
+    /* The receive channel gain in dB */
+    repeated uint32 u8aRxChannelGain = 9;
+}
+
+/* @brief  Radar front-end Settings */
+message RFE_SettingType
+{
+    uint32 u8FrontEnd = 1;  /* Radar front end chip used */
+
+	/* Bit field indicating which of the receive channels are enabled */
+    uint32 u32RxChannelEnable = 2;
+	
+	/* The ADC sampling frequency in kSps */ 
+    uint32 u32SamplingFrequency = 3;
+	
+    /* Number of chirps present in the frame */
+    uint32 u16NrChirpsInFrame = 4;
+	
+    /* Number of sample that will be acquired during the acquisition window */
+    uint32 u16NrSamplesPerChirp = 5;
+	
+    /* The number of chirp shapes that will be configured for this frame */
+    uint32 u8NrChirpShapes = 6;
+	
+    /* Array to the chirp shapes which will be generated in the current frame */
+    repeated RFE_ChirpShapeType straChirpShapes = 7;
+	
+	/* Bit field indicating which of the RF switch are enabled */
+    uint32 u8TxSwitchEnable = 8;
+	
+	/* TX gain */
+    repeated uint32 u8aTxGain = 9 ;
+}
+
+/* @brief  Tef82XX(device specific) chirp shape optional parameters */
+message TEF82xx_ProfileOptionalParamType
+{
+	/* Phase shift value for each TX channel */
+	repeated uint32 u32aTxPhase = 1;
+	
+	/* Bipolar phase shift enable for each TX channel */
+    repeated uint32 u8aTxBPS = 2;
+	
+    /* Choose wideband mode decimation filter or narrowband mode */
+    uint32 u8PDCBWWide = 3;
+	
+    /* Receiver High-pass filter cutoff frequency depicted by rsdkRfeTef82XXRxLpfCutOff */
+    repeated TEF82xx_RxLpfCutOffType enuaRxLPF = 4;
+	
+    /* Receiver High-pass filter cutoff frequency depicted by rsdkRfeTef82XXRxHpfCutOff */
+    repeated TEF82xx_RxHpfCutOffType enuaRxHPF = 5 ;
+	
+    /* Chirp PLL VCO Bandwidth options */
+    uint32 u8VcoSel = 6;
+	
+    /* CSI2 Virtual Channel assigned for radar data transfer for a specific profile */
+    uint32 u8VirtualChannelNo = 7;
+}
+
+/* @brief  Tef82XX(device specific) Freq Auto drift parameters */
+message TEF82xx_AutoDriftParamType
+{
+    /* enabeFreqAutoDrift */
+    uint32 u8EnabeFreqAutoDrift = 1;
+	
+    /* FreqDriftHz required frequency drift in Hz, typical value < 40MHz */
+    uint32 u32FreqDriftHz = 2;
+}
+
+/* @brief  Tef82XX(device specific) Phase Rotator parameters */
+message TEF82xx_PhaseRotatorParamType
+{
+	/* enablePhaseRotators: Enable / Disable Phase Rotators */
+    uint32 u8EnablePhaseRotators = 1;
+	
+	/* useDDMA: Source of initial phase code for each TX channel */
+	repeated uint32 u8aUseDDMA = 2;
+	
+	/* ddmaMode: DDMA mode common for the TXs that choose DDMA as source of initial phase code */
+	TEF82xx_DDMAModeSelType enuDdmaMode = 3;
+	
+	/* ddmaInitPhase: Initial phase value in degrees for DDMA mode for each TX channel */
+	repeated uint32 u32aDdmaInitPhase = 4 ;
+	
+	/* ddmaPhaseUpdate: Phase update value in degrees for DDMA mode for each TX channel */
+	repeated uint32 u32aDdmaPhaseUpdate = 5 ;
+	
+	/* finalPCGenMode: Phase code generation modes for each TX channel */
+	repeated TEF82xx_PRPCGenModeType enuaFinalPCGenMode = 6 ;
+	
+	/* phaseShiftControlSource: Source of Phase Shift (BPSK/QPSK) control for each TX channel */
+	repeated uint32 u8aPhaseShiftControlSource = 7 ;
+	
+	/* enAsyncBpskIOSampling: Sampling mode for BPSK IO control */
+    uint32 u8EnAsyncBpskIOSampling = 8;
+	
+	/* enAsyncQpskIOSampling: Sampling mode for QPSK IO control */
+	uint32 u8EnAsyncQpskIOSampling = 9;
+}
+
+/* @brief  Tef82XX(device specific) chirp frame optional parameters. */
+message TEF82xx_FrameOptionalParamType
+{
+    /* Sequence interval is a delay between chirp frames [ns] (25ns resolution) */
+    uint32 u32SeqInterval = 1;
+	
+    /* Power On Delay introduces a delay before the first chirp, in order to allow the analog circuits to stabilize */
+    uint32 u32PonDelay = 2;
+	
+    /* Inner Safety Monitor enable delay */
+    uint32 u16IsmDelay = 3;
+	
+    /* Use external chirp start trigger */
+    uint32 u8UseExtTrig = 4;
+	
+    /* Profile Reset Enable */
+    uint32 u8ProfReset = 5;
+	
+    /* This input parameter decides the sequence of using different profiles in a chirp frame */
+    uint32 u8ProfModeSel = 6;
+	
+    /* This is a custom list of maximum 8 profiles that can be used by the RFE in any order specified by the user */
+    repeated uint32 u8aProfList = 7;
+	
+    /* This input parameter determines how many times one profile will repeat in a profile sequence */
+    uint32 u8ProfStayCnt = 8;
+	
+    /* Group power on delay for all TXs in [us] */
+    uint32 u32TxPonGroupDelay = 9;
+	
+    /* Group power on delay for all RXs in [us] */
+    uint32 u32RxPonGroupDelay = 10;
+	
+    /* Group delay fine control for Tx1 and Rx1 pair */
+    uint32 u32GDelayFineControl1 = 11;
+	
+    /* Group delay fine control for Tx2 and Rx2 pair */
+    uint32 u32GDelayFineControl2 = 12;
+	
+    /* Group delay fine control for Tx3 and Rx3 pair */
+    uint32 u32GDelayFineControl3 = 13;
+	
+    /* Group delay fine control for Rx4 */
+    uint32 u32GDelayFineControl4 = 14;
+	
+    /* Number of chirp sequences in a burst with a chirp start trigger */
+    uint32 u8NumSeqInBurst = 15;
+	
+    /* Safety monitoring activation control */
+    uint32 u8SafetyMontrActCtrl = 16;
+	
+    /* PR Safety Check */
+    uint32 u8EnPRSafetyCheck = 17;
+	
+    /* Delay in [us], at the end of the chirp sequence to start the safety check */
+    uint32 u32PrSafetyStartDelay = 18;
+	
+    /* PR calibration */
+    uint32 u8EnPRCalib = 19;
+	
+    /* Delay in [us], at the start of the chirp sequence to start the calibration check */
+    uint32 u32PrCalibStartDelay = 20;
+	
+    /* Type of chirp - progressive or non-progressive */
+    uint32 u8ChirpProgressiveType = 21;
+	
+    /* Sweep reset control mode */
+    uint32 u8SweepRstCtrl = 22;
+	
+    /* CAFC Fast Return Gear Switching */
+    uint32 u8FastDischargeGSEnable = 23;
+	
+    /* CAFC Fast Return current injection */
+    uint32 u8FastDischargeCurrInjEnable = 24;
+	
+    /* CAFC AAFC and TX PR calibration frequency modes */
+    uint32 u8CafcTxCalMode = 25;
+	
+    /* CAFC PLL LPF setting */
+    uint32 u8CafcPllLPFSel = 26;
+	
+    /* Choose which loop filter setting LUT table to be used */
+    uint32 u8CafcPllLPFLUTSel = 27;
+	
+    /* PLL Loop bandwidth in Hz */
+    uint32 u32CafcLoopBandwidth = 28;
+	
+    /* TEF82XX optional profile params */
+    repeated TEF82xx_ProfileOptionalParamType straProfileOpParam = 29;
+	
+    /* TEF82XX optional Frequency auto drift params */
+    TEF82xx_AutoDriftParamType strAutoDrift = 30;
+	
+    /* TEF82XX optional Phase rotator params */
+    TEF82xx_PhaseRotatorParamType strPhaseRotator = 31;
+}
+
+/* @brief  Radar parameter configuration */
+message RadarParamCfgType
+{
+    uint32                         u16Cmd                 = 1;   /* cmd kinds */
+    uint32                         u16AcqNrFrames         = 2;
+	RFE_SettingType                strRfeSetting          = 3;
+	TEF82xx_FrameOptionalParamType strTef82xxFrameOpParam = 4;
+}

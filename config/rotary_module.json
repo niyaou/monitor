@@ -1,0 +1,25 @@
+{
+  "ServerId": 101,
+  "ClientListenAddr": "192.168.200.52:3000",
+  "ClientConnConfig": {
+    "SendPacketCacheCap": 32,
+    "SendBufferSize": 20480,
+    "RecvBufferSize": 20480,
+    "MaxPacketSize": 10240,
+    "RecvTimeout": 2000
+  },
+  "ServerListenAddr": "192.168.200.52:3000",
+  "ServerConnConfig": {
+    "SendPacketCacheCap": 64,
+    "SendBufferSize": 2097152,
+    "RecvBufferSize": 2097152,
+    "MaxPacketSize": 1048576,
+    "RecvTimeout": 2000,
+    "HeartBeatInterval": 25
+  },
+  "MongoUri": "mongodb://localhost:27017",
+  "RedisUri": [
+    "127.0.0.1:6379"
+  ],
+  "RedisCluster": false
+}
