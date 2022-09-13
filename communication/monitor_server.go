@@ -24,14 +24,34 @@ import (
 )
 
 var (
-	_                      Server = (*MonitorViewServer)(nil)
-	_monitorViewServer     *MonitorViewServer
-	_monitorMsgMap         = make(map[string][]byte)
+	_                  Server = (*MonitorViewServer)(nil)
+	_monitorViewServer *MonitorViewServer
+	_monitorMsgMap     = &SMap{
+		Map: make(map[string][]byte),
+	}
 	keyFile                = flag.String("key_file", "", "The TLS key file")
 	port                   = flag.Int("port", 50051, "The server port")
-	_monitorHandlerChannel = []string{"FC2_RECEIVE"}
-	_count                 = 0
+	_monitorHandlerChannel = []string{"FC2_RECEIVE", "FC2_STATUS"}
+	//_count                 = 0
 )
+
+type SMap struct {
+	sync.RWMutex
+	Map map[string][]byte
+}
+
+func (l *SMap) readMap(key string) ([]byte, bool) {
+	l.RLock()
+	value, ok := l.Map[key]
+	l.RUnlock()
+	return value, ok
+}
+
+func (l *SMap) writeMap(key string, value []byte) {
+	l.Lock()
+	l.Map[key] = value
+	l.Unlock()
+}
 
 type MonitorViewServer struct {
 	BaseServer
@@ -39,6 +59,7 @@ type MonitorViewServer struct {
 	mu          sync.Mutex // protects routeNotes
 	config      *MonitorServerConfig
 	_grpcServer *grpc.Server
+	_lastAck    *pb.RadarAckMsgType
 }
 
 // 登录服配置
@@ -57,6 +78,18 @@ func (_self *MonitorViewServer) crosConfig(w *http.ResponseWriter) *http.Respons
 	(*w).Header().Set("content-type", "application/json")
 	return w
 }
+
+func Fc2ParamAck(rw http.ResponseWriter, req *http.Request) {
+	rw = *_monitorViewServer.crosConfig(&rw)
+	_respons := make(map[string]interface{})
+	_respons["code"] = 0
+	_respons["data"] = _monitorViewServer._lastAck
+	_respons["msg"] = ""
+	jsonU, _ := json.Marshal(_respons)
+	// fmt.Println(string(jsonU))
+	rw.Write(jsonU)
+}
+
 func ConfigFc2Param(rw http.ResponseWriter, req *http.Request) {
 	rw = *_monitorViewServer.crosConfig(&rw)
 	// 读取配置内容body
@@ -108,7 +141,7 @@ func ConfigFc2Param(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_msg, ok := _monitorMsgMap[key]
+	_msg, ok := _monitorMsgMap.readMap(key)
 	if !ok {
 		_msg = []byte{}
 	}
@@ -119,7 +152,7 @@ func ConfigFc2Param(rw http.ResponseWriter, req *http.Request) {
 		_respons["msg"] = "AckCode_ParamCfgType_ERR_UNKNOWN"
 	} else {
 		_msg = _payl.([]byte)
-		_monitorMsgMap[key] = _msg
+		_monitorMsgMap.writeMap(key, _msg)
 		proto.Unmarshal(_payl.([]byte), ack)
 		_respons["msg"] = ack
 	}
@@ -208,6 +241,31 @@ func ADCRecvStatistic(rw http.ResponseWriter, req *http.Request) {
 	_respons["code"] = 0
 	_respons["data"] = statistic
 	jsonU, _ := json.Marshal(_respons)
+	rw.Write(jsonU)
+
+}
+
+func ConfigFileSet(rw http.ResponseWriter, req *http.Request) {
+	rw = *_monitorViewServer.crosConfig(&rw)
+	query := req.URL.Query()
+	names, _ := query["fileName"]
+	_respons := make(map[string]interface{})
+	_respons["code"] = 500
+	_respons["data"] = ""
+	_respons["msg"] = ""
+	_respons["code"] = 0
+	b := _monitorViewServer.BaseServer.GetBroker()
+	if b == nil {
+		logger.Info("Acknowledged bridge is nil---------")
+		_respons["msg"] = "Acknowledged bridge is nil----"
+		jsonU, _ := json.Marshal(_respons)
+		fmt.Println(string(jsonU))
+		rw.Write(jsonU)
+		return
+	}
+	b.Publish(_radarHandlerChannel[3], []byte(names[0]))
+	jsonU, _ := json.Marshal(_respons)
+
 	// fmt.Println(string(jsonU))
 	rw.Write(jsonU)
 	// logger.Info("get byte from channel subscrib------- 	_monitorMsgMap[key]:%v   subm:%v  ", key, jsonU)
@@ -290,7 +348,7 @@ func RotaryCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
 
 		ack.ModuleType = uint32(ModuleType) // 转台
 
-		_msg, ok := _monitorMsgMap[current]
+		_msg, ok := _monitorMsgMap.readMap(current)
 		if !ok {
 			_msg = []byte{}
 		}
@@ -301,7 +359,7 @@ func RotaryCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
 			continue
 		} else {
 			_msg = _payl.([]byte)
-			_monitorMsgMap[current] = _msg
+			_monitorMsgMap.writeMap(current, _msg)
 
 			ack.CommandPayload = string(_msg)
 
@@ -340,25 +398,26 @@ func registerReceiveChannel() {
 		ch, err := b.Subscribe(key)
 		if err != nil {
 			log.Fatalf("failed to subscrib: %v", err)
-		} else {
-			// logger.Info("subscrib channel %v  successed     ", key)
 		}
 
 		go func(ch <-chan interface{}, key string) {
 			for {
-				_msg, ok := _monitorMsgMap[key]
+				_msg, ok := _monitorMsgMap.readMap(key)
 				if !ok {
 					_msg = []byte{}
 				}
 				_payl := b.GetPayLoad(ch)
 
 				_msg = _payl.([]byte)
-				_monitorMsgMap[key] = _msg
+				_monitorMsgMap.writeMap(key, _msg)
 				// copy(_msg, _payl.([]byte))
 				ack := &pb.RadarAckMsgType{}
 				proto.Unmarshal(_payl.([]byte), ack)
-				logger.Info("get byte from channel subscrib------- 	_monitorMsgMap[key]:%v   subm:%v   total:%v ", _monitorMsgMap[key], ack, _count)
-				_count++
+				logger.Info("get byte from channel subscrib------- 	_monitorMsgMap[key]:%v   subm:%v   total:%v ", _msg, ack)
+				if key == _monitorHandlerChannel[1] {
+					s._lastAck = ack
+
+				}
 			}
 		}(ch, key)
 	}
@@ -378,6 +437,7 @@ func (_self *MonitorViewServer) Init(ctx context.Context, configFile string) boo
 	clientHandler := NewDefaultConnectionHandler(clientCodec)
 	_self.registerClientPacket(clientHandler)
 	flag.Parse()
+	_self._lastAck = &pb.RadarAckMsgType{}
 	// var opts []grpc.ServerOption
 	// if *tls {
 	// 	if *certFile == "" {
@@ -407,6 +467,8 @@ func (_self *MonitorViewServer) Init(ctx context.Context, configFile string) boo
 	http.HandleFunc("/HeartBeatReq", HeartBeatReq)
 	http.HandleFunc("/RotaryCommandAcknowledge", RotaryCommandAcknowledge)
 	http.HandleFunc("/ADCRecvStatistic", ADCRecvStatistic)
+	http.HandleFunc("/ConfigFileSet", ConfigFileSet)
+	http.HandleFunc("/Fc2ParamAck", Fc2ParamAck)
 	go _monitorViewServer.runView()
 
 	http.ListenAndServe(addr, nil)

@@ -47,6 +47,7 @@ type ADCHandler struct {
 	channelRunning  bool
 	ceaseSaveFlag   bool   //停止信号，收到停止信号后，结束当前文件
 	saveFileName    string //存储的文件名
+	configFileName  string //当前配置文件名
 }
 
 func NewADCHandler(ctx context.Context, broker *BrokerClient) *ADCHandler {
@@ -63,6 +64,7 @@ func NewADCHandler(ctx context.Context, broker *BrokerClient) *ADCHandler {
 		frameSaveCount: 1,
 		saveFrameCount: 0,
 		ceaseSaveFlag:  false,
+		configFileName: "",
 	}
 }
 
@@ -140,6 +142,10 @@ func (_self *ADCHandler) SetSaveFileName(turrentParams string) {
 	_self.saveFileName = turrentParams
 }
 
+func (_self *ADCHandler) SetConfigFileName(configFileName string) {
+	_self.configFileName = configFileName
+}
+
 func (_self *ADCHandler) LoopTackle() error {
 	// 读取数据，写入文件
 	if _self.channelRunning {
@@ -157,7 +163,7 @@ func (_self *ADCHandler) LoopTackle() error {
 			switch adc.EnuAdcAcqDataType {
 			case pb.AdcAcq_DataType_ADC_ACQ_TYPE_FRAME_HEAD:
 				if _self.saveFrameCount == 0 {
-					_self.datFileBig, _ = os.OpenFile(fmt.Sprintf("AdcAcqData/%s_param_%s_big.dat", GetCurrentTimeString(), _self.saveFileName), os.O_WRONLY|os.O_CREATE, os.ModePerm)
+					_self.datFileBig, _ = os.OpenFile(fmt.Sprintf("AdcAcqData/%s%s_%s.dat", _self.configFileName, GetCurrentTimeString(), _self.saveFileName), os.O_WRONLY|os.O_CREATE, os.ModePerm)
 					_self.wDatFileBigIo = bufio.NewWriter(_self.datFileBig)
 					_self.fileDataCount = 0
 					_self.dataHandling = 0
@@ -210,8 +216,8 @@ func (_self *ADCHandler) LoopTackle() error {
 					_self.saveFrameCount = 0
 					_self.ceaseSaveFlag = false
 					// logger.Info("----------dismiss %v ===================", _self.saveFrameCount)
-					logger.Info("----------》dequeue end  =================== data receive:%v    dealing:%v   frameHeadCount %v  chirpHeadCount:%v   chirpDataCount:%v   chirpTailCount:%v totalBytesCount:%v  totalFrameLen:%v",
-						_self.fileDataCount, _self.dataHandling, _self.frameHeadCount, _self.chirpHeadCount, _self.chirpDataCount, _self.chirpTailCount, _self.totalBytesCount, _self.totalFrameLen)
+					logger.Info("----------》dequeue end  ======_self.saveFrameCount %v == _self.frameSaveCount  %v ============= data receive:%v    dealing:%v   frameHeadCount %v  chirpHeadCount:%v   chirpDataCount:%v   chirpTailCount:%v totalBytesCount:%v  totalFrameLen:%v",
+						_self.saveFrameCount, _self.frameSaveCount, _self.fileDataCount, _self.dataHandling, _self.frameHeadCount, _self.chirpHeadCount, _self.chirpDataCount, _self.chirpTailCount, _self.totalBytesCount, _self.totalFrameLen)
 
 				}
 

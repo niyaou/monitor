@@ -16,9 +16,11 @@ import (
 
 var (
 	_                    Server = (*CommunicateServer)(nil)
-	_radarHandlerChannel        = []string{"FC2_SEND", "FC2_ACK", "ROTARY_SEND"} //雷达服务处理的频道key
-	_radarMsgMap                = make(map[string][]byte)                        //每个频道对应的map数据
-	_communicateServer   *CommunicateServer
+	_radarHandlerChannel        = []string{"FC2_SEND", "FC2_ACK", "ROTARY_SEND", "CONFIG_FILE", "FC2_STATUS"} //雷达服务处理的频道key
+	_radarMsgMap                = &SMap{
+		Map: make(map[string][]byte),
+	} //每个频道对应的map数据
+	_communicateServer *CommunicateServer
 )
 
 type CommunicateServer struct {
@@ -50,14 +52,14 @@ func radarSendChannel() {
 
 		go func(ch <-chan interface{}, key string) {
 			for {
-				_msg, ok := _radarMsgMap[key]
+				_msg, ok := _radarMsgMap.readMap(key)
 				if !ok {
 					_msg = []byte{}
 				}
 				_payl := b.GetPayLoad(ch)
 
 				_msg = _payl.([]byte)
-				_radarMsgMap[key] = _msg
+				_radarMsgMap.writeMap(key, _msg)
 
 				//如果是发送，则构造消息体发送给雷达
 				switch key {
@@ -101,6 +103,10 @@ func radarSendChannel() {
 						_communicateServer.msgHandler.SetSaveFileName(_str_cmd)
 						logger.Info("获取设置转台的参数，用于设置存储的ADC文件名 %v  ", _str_cmd)
 					}
+				case _radarHandlerChannel[3]:
+					_str_cmd := string(_msg)
+					_communicateServer.msgHandler.SetConfigFileName(_str_cmd)
+					logger.Info("获取设置雷达的参数，-----用于设置存储的ADC文件名 %v  ", _str_cmd)
 				default:
 					logger.Info("receive-------newProtoMessage ---------default %v  ", key)
 				}
@@ -222,6 +228,7 @@ func onEthanMsg(connection Connection, packet *ProtoPacket) {
 				proto.Unmarshal(newProtoMessage.PMsgStream, ack)
 				logger.Info("------radar---------message------>MsgModelType_RADAR_PARAM_CFG---->  %v", ack)
 				b.Publish(_radarHandlerChannel[1], newProtoMessage.PMsgStream)
+				b.Publish(_radarHandlerChannel[4], newProtoMessage.PMsgStream)
 			case pb.MsgModelType_RADAR_ADC_ACQ_DATA:
 				_communicateServer.dataCount++
 				_communicateServer.msgHandler.Consume(newProtoMessage.PMsgStream)

@@ -181,6 +181,7 @@ func NewRotaryCodec(packetHeaderSize PacketHeaderSize) *RotaryCodec {
 
 func (_self *RotaryCodec) DecodePacket(connection Connection, packetHeader string, packetData []byte) Packet {
 	decodedPacketData := packetData
+
 	return NewDataPacket(nil, packetHeader+string(decodedPacketData))
 
 }
