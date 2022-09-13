@@ -125,8 +125,8 @@ func (_self *RotaryTableServer) Init(ctx context.Context, configFile string) boo
 		panic("connect failed")
 	}
 
-	b := _self.BaseServer.GetBroker()
-	b.Publish(_rotaryTableHandlerChannel[0], []byte("POS"))
+	// b := _self.BaseServer.GetBroker()
+	// b.Publish(_rotaryTableHandlerChannel[0], []byte("POS"))
 	return true
 }
 
@@ -168,7 +168,7 @@ func onSPMsg(connection Connection, packet *DataPacket) {
 	// logger.Info("------------------------raw packet :%v", packet)
 	b := _rotaryTableServer.BaseServer.GetBroker()
 	// logger.Info("------++++++++++---cmd:%v -- %v----message  %v  ch", packet.Command(), packet.Message(), newProtoMessage)
-	b.Publish(_rotaryHandlerChannel[1], []byte(packet.GetStringData()))
-	logger.Info("---data from tcp ---radar---------message  %v  channel:%v", packet.GetStringData(), _rotaryHandlerChannel[1])
+	b.Publish(_rotaryTableHandlerChannel[1], packet.GetStreamData())
+	logger.Info("---data from tcp ---radar---------message  %v %V channel:%v", packet.GetStreamData(), string(packet.GetStreamData()), _rotaryTableHandlerChannel[1])
 
 }

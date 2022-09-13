@@ -227,6 +227,36 @@ func RotaryCommand(rw http.ResponseWriter, req *http.Request) {
 	rw.Write(jsonU)
 }
 
+func RotaryTableCommand(rw http.ResponseWriter, req *http.Request) {
+	rw = *_monitorViewServer.crosConfig(&rw)
+	// 读取配置内容body
+	s, _ := ioutil.ReadAll(req.Body)
+	jsonstr := string(s)
+	// logger.Info(" RotaryCommand>>>>>>>111>>>> %v >>>>>>>>>>> ", jsonstr)
+
+	_respons := make(map[string]interface{})
+	//构造默认返回值
+
+	_respons["code"] = 0
+	_respons["data"] = jsonstr
+	_respons["msg"] = ""
+
+	// 获取消息中间件
+
+	b := _monitorViewServer.BaseServer.GetBroker()
+	if b == nil {
+		logger.Info("RotaryCommand bridge is nil---------")
+		_respons["msg"] = "AckCode_ParamCfgType_ERR_UNKNOWN"
+		jsonU, _ := json.Marshal(_respons)
+		rw.Write(jsonU)
+		return
+	}
+
+	b.Publish(_rotaryTableHandlerChannel[0], []byte(jsonstr))
+	jsonU, _ := json.Marshal(_respons)
+	rw.Write(jsonU)
+}
+
 func ADCRecvStatistic(rw http.ResponseWriter, req *http.Request) {
 
 	rw = *_monitorViewServer.crosConfig(&rw)
@@ -383,6 +413,81 @@ func RotaryCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
 	rw.Write(jsonU)
 }
 
+func RotaryTableCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
+	rw = *_monitorViewServer.crosConfig(&rw)
+
+	_respons := make(map[string]interface{})
+	_respons["code"] = 500
+	_respons["data"] = ""
+	_respons["msg"] = ""
+
+	b := _monitorViewServer.BaseServer.GetBroker()
+	if b == nil {
+		logger.Info("Acknowledged bridge is nil---------")
+		_respons["msg"] = "Acknowledged bridge is nil----"
+		jsonU, _ := json.Marshal(_respons)
+		rw.Write(jsonU)
+		return
+	}
+
+	b.Publish(_rotaryTableHandlerChannel[0], []byte("POS"))
+	key := _rotaryTableHandlerChannel[1]
+
+	updateTicker := time.NewTicker(123 * time.Millisecond)
+	defer func() {
+		updateTicker.Stop()
+	}()
+
+	ch, err := b.Subscribe(key)
+
+	if err != nil {
+		logger.Info("failed to subscrib: %v", err)
+		_respons["msg"] = "failed to subscrib"
+		jsonU, _ := json.Marshal(_respons)
+		rw.Write(jsonU)
+		b.Unsubscribe(key, ch)
+		return
+	}
+	count := 20
+	ack := &pb.RotaryCommand{}
+	for {
+		<-updateTicker.C
+		if count == 0 {
+			break
+		}
+		current := key
+
+		_msg, ok := _monitorMsgMap.readMap(current)
+		if !ok {
+			_msg = []byte{}
+		}
+		_payl := b.GetPayLoadAsync(ch, 100)
+		count = count - 1
+
+		if _payl == nil {
+			continue
+		} else {
+			_msg = _payl.([]byte)
+			_monitorMsgMap.writeMap(current, _msg)
+			ack.CommandPayload = string(_msg)
+			_respons["code"] = 0
+			_respons["data"] = ack
+			jsonU, _ := json.Marshal(_respons)
+			rw.Write(jsonU)
+			b.Unsubscribe(key, ch)
+			logger.Info("get byte from channel subscrib------- 	_monitorMsgMap[key]:%v   subm:%v  ", ack)
+			return
+		}
+
+	}
+
+	_respons["code"] = 0
+	_respons["data"] = ack
+	jsonU, _ := json.Marshal(_respons)
+	b.Unsubscribe(key, ch)
+	rw.Write(jsonU)
+}
+
 func newServer() *MonitorViewServer {
 	s := &MonitorViewServer{}
 	return s
@@ -469,6 +574,8 @@ func (_self *MonitorViewServer) Init(ctx context.Context, configFile string) boo
 	http.HandleFunc("/ADCRecvStatistic", ADCRecvStatistic)
 	http.HandleFunc("/ConfigFileSet", ConfigFileSet)
 	http.HandleFunc("/Fc2ParamAck", Fc2ParamAck)
+	http.HandleFunc("/RotaryTableCommandAcknowledge", RotaryTableCommandAcknowledge)
+	http.HandleFunc("/RotaryTableCommand", RotaryTableCommand)
 	go _monitorViewServer.runView()
 
 	http.ListenAndServe(addr, nil)
