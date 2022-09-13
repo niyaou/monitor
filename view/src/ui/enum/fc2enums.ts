@@ -1,0 +1,8 @@
+export enum Cmd {
+    CMD_CFG_CHIRP_PARA = 0,
+    CMD_EN_CENTER_FREQ = 1,
+    CMD_START_SINGAL_ACQ = 2,
+    CMD_START_REPEAT_ACQ = 3,
+    CMD_START_CONTINUE_CHIRP = 4,
+    CMD_STOP_CHIRP = 0xffff,
+}

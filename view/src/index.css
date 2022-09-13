@@ -1,0 +1,9 @@
+@import '~antd/dist/antd.css';
+
+.display-visible {
+    display: 'visible'
+}
+
+.display-none {
+    display: 'none'
+}
