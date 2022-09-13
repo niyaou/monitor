@@ -2,7 +2,6 @@ package gnet
 
 import (
 	"context"
-	"encoding/binary"
 	"io"
 	"net"
 	"sync"
@@ -139,12 +138,9 @@ func (_self *SerialConnection) Start(ctx context.Context, netMgrWg *sync.WaitGro
 				LogStack()
 			}
 		}()
-		if _self.isFixedHead {
-			_self.readLoop()
-			logger.Info("readLoop   %v %v", _self.SerialName, _self.SerialPort)
-		} else {
-			_self.readLoopString()
-		}
+		_self.readLoop()
+		logger.Info("readLoop   %v %v", _self.SerialName, _self.SerialPort)
+
 		_self.Close()
 	}()
 
@@ -163,7 +159,8 @@ func (_self *SerialConnection) Start(ctx context.Context, netMgrWg *sync.WaitGro
 	}(ctx)
 }
 
-func (_self *SerialConnection) readLoopString() {
+// 收包过程
+func (_self *SerialConnection) readLoop() {
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("readLoop fatal %v: %v", _self.GetConnectionId(), err.(error))
@@ -176,11 +173,7 @@ func (_self *SerialConnection) readLoopString() {
 		// 可写入的连续buffer
 		writeBuffer := _self.recvBuffer.WriteBuffer()
 		readBuffer := _self.recvBuffer.ReadBuffer()
-		if len(writeBuffer) == 0 {
-			// 不会运行到这里来,除非recvBuffer的大小设置太小:小于了包头的长度
-			logger.Error("%v recvBuffer full", _self.GetConnectionId())
-			return
-		}
+
 		n, err := _self.conn.Read(writeBuffer)
 		if err != nil {
 			if err != io.EOF {
@@ -189,86 +182,21 @@ func (_self *SerialConnection) readLoopString() {
 			break
 		}
 		_self.recvBuffer.SetWrited(n)
-		// logger.Info(" count:%v  ", n)
+		logger.Info(" count:%v   unread length %v ", n, _self.recvBuffer.UnReadLength())
 
 		for _self.isConnected {
 			newPacket, _ := _self.codec.Decode(_self, readBuffer)
-
 			if newPacket == nil {
 				break
 			}
-
 			_self.lastRecvPacketTick = GetCurrentTimeStamp()
 			if _self.handler != nil {
 				_self.dataCount++
 				_self.handler.OnRecvPacket(_self, newPacket)
-				// logger.Info(" count:%v  ", _self.dataCount)
 			}
 		}
 	}
 
-}
-
-// 收包过程
-func (_self *SerialConnection) readLoop() {
-	defer func() {
-		if err := recover(); err != nil {
-			logger.Error("readLoop fatal %v: %v", _self.GetConnectionId(), err.(error))
-			LogStack()
-		}
-	}()
-
-	_self.recvBuffer = _self.createRecvBuffer()
-	_self.tmpReadPacketHeaderData = make([]byte, _self.codec.PacketHeaderSize())
-	_self.tmpReadUnDecodeData = make([]byte, 4000)
-	for _self.isConnected {
-		if _self.codecLen == 0 {
-			n, err := _self.conn.Read(_self.tmpReadPacketHeaderData[_self.readedHeadLen:])
-			if err != nil {
-				if err != io.EOF {
-					logger.Debug("readLoop %v err:%v", _self.GetConnectionId(), err.Error())
-				}
-				break
-			}
-			_self.readedHeadLen += uint32(n)
-			_self.readLoopTotal += uint64(n)
-			if _self.readedHeadLen < 4 {
-				continue
-			} else if _self.readedHeadLen == 4 {
-				_self.readedHeadLen = 0
-				_self.codecLen = binary.LittleEndian.Uint32(_self.tmpReadPacketHeaderData)
-				continue
-			}
-		} else {
-			n, err := _self.conn.Read(_self.tmpReadUnDecodeData[_self.readedDataLen:_self.codecLen])
-			if err != nil {
-				if err != io.EOF {
-					logger.Info("readLoop %v err:%v", _self.GetConnectionId(), err.Error())
-				}
-				break
-			}
-			_self.readedDataLen += uint32(n)
-			_self.readLoopTotal += uint64(n)
-			if _self.readedDataLen < _self.codecLen {
-				continue
-			} else if _self.readedDataLen == _self.codecLen {
-				newPacket, _ := _self.codec.Decode(_self, _self.tmpReadUnDecodeData[:_self.codecLen])
-				_self.codecLen = 0
-				_self.readedDataLen = 0
-				if newPacket == nil {
-					if len(_self.tmpReadUnDecodeData[:_self.codecLen]) > 0 {
-						logger.Info(" newPacket is nil : %v  ", len(_self.tmpReadUnDecodeData[:_self.codecLen]))
-					}
-					break
-				}
-				_self.lastRecvPacketTick = GetCurrentTimeStamp()
-				if _self.handler != nil {
-					_self.dataCount++
-					_self.handler.OnRecvPacket(_self, newPacket)
-				}
-			}
-		}
-	}
 }
 
 // 发包过程

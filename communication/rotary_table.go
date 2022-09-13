@@ -126,7 +126,7 @@ func (_self *RotaryTableServer) Init(ctx context.Context, configFile string) boo
 	}
 
 	b := _self.BaseServer.GetBroker()
-	b.Publish(_rotaryTableHandlerChannel[0], []byte("fdsr rew "))
+	b.Publish(_rotaryTableHandlerChannel[0], []byte("POS"))
 	return true
 }
 

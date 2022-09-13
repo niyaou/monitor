@@ -1,5 +1,7 @@
 package gnet
 
+import "regexp"
+
 // const (
 // 	ANGLE_SET_TITLE = "SET_angle"
 // 	ANGLE_SET_BODY  = "SET_angle_****.**_****.**_****.**"
@@ -75,64 +77,49 @@ func (_self *RotaryTableCodec) Encode(connection Connection, packet Packet) []by
 }
 
 func (_self *RotaryTableCodec) Decode(connection Connection, data []byte) (newPacket Packet, err error) {
+	EOF := "<EOF:(\\d+)>"
+	JSONTAG := "{([^}])*}"
+	r, _ := regexp.Compile(EOF)
+	j, _ := regexp.Compile(JSONTAG)
 	if tcpConnection, ok := connection.(*SerialConnection); ok {
 		recvBuffer := tcpConnection.recvBuffer
 
-		// 先解码包头
-		if tcpConnection.curReadPacketHeader == nil {
-			packetHeaderSize := int(_self.PacketHeaderSize())
-			if recvBuffer.UnReadLength() < packetHeaderSize {
-				return
-			}
-			var packetHeaderData []byte
-			readBuffer := recvBuffer.ReadBuffer()
-			if len(readBuffer) >= packetHeaderSize {
-
-				packetHeaderData = readBuffer[0:packetHeaderSize]
-				// logger.Info("---packetHeaderSize----- %v ", packetHeaderData)
-			} else {
-
-				packetHeaderData = tcpConnection.tmpReadPacketHeaderData
-				// 先拷贝RingBuffer的尾部
-				n := copy(packetHeaderData, readBuffer)
-				// 再拷贝RingBuffer的头部
-				copy(packetHeaderData[n:], recvBuffer.buffer)
-			}
-			recvBuffer.SetReaded(packetHeaderSize)
-
-			PLCTitle := string(packetHeaderData)
-
-			// header := tcpConnection.curReadPacketHeader
-			bodySize := _self.PacketBodySize(PLCTitle)
-			// logger.Info("检查数据包是否读完    recvBuffer.UnReadLength()%v   int(header.Len()):%v  body : %v", PLCTitle, uint32(len(PLCTitle)), bodySize)
-			var packetData []byte
-
-			if int(bodySize) <= recvBuffer.Size() {
-
-				if recvBuffer.UnReadLength() < int(bodySize) {
-					logger.Info("包体数据还没收完整")
-					return
-				}
-				packetData = recvBuffer.ReadFull(int(bodySize))
-			} else {
-				// 数据包超出了RingBuffer大小
-				// 为什么要处理数据包超出RingBuffer大小的情况?
-				// 因为RingBuffer是一种内存换时间的解决方案,对于处理大量连接的应用场景,内存也是要考虑的因素
-				// 有一些应用场景,大部分数据包都不大,但是有少量数据包非常大,如果RingBuffer必须设置的比最大数据包还要大,可能消耗过多内存
-			}
-
-			if _self.DataDecoder != nil {
-				newPacket = _self.DataDecoder(connection, PLCTitle, packetData)
-			} else {
-				newPacket = NewDataPacket(packetData, "")
-				tcpConnection.curReadPacketHeader = nil
-				return newPacket, ErrNotSupport
-			}
-			tcpConnection.curReadPacketHeader = nil
-
-			return newPacket, ErrNotSupport
-
+		// readBuffer := recvBuffer.ReadBuffer()
+		if recvBuffer.UnReadLength() == 0 {
+			return nil, ErrNotSupport
 		}
+
+		packetData := recvBuffer.ReadFull(recvBuffer.UnReadLength())
+		indxs := r.FindAllIndex(packetData, -1)
+		// match, _ := regexp.Match(EOF, packetData)
+		lastEof := 0
+		for _, inds := range indxs {
+			f := inds[0]
+			l := inds[1]
+			logger.Info("接受数据包  标识符 %s   % 02X", string(packetData[lastEof:f]), packetData[lastEof:f])
+			payloads := j.FindAll(packetData[lastEof:f], -1)
+			for _, load := range payloads {
+				newPacket = NewDataPacket(load, "")
+				logger.Info("接受数据包  载荷  %s   % 02X", string(load), load)
+			}
+			lastEof = l
+		}
+
+		// bodySize := _self.PacketBodySize(PLCTitle)
+		// var packetData []byte
+
+		// if int(bodySize) <= recvBuffer.Size() {
+
+		// 	if recvBuffer.UnReadLength() < int(bodySize) {
+		// 		logger.Info("包体数据还没收完整")
+		// 		return
+		// 	}
+		// 	packetData = recvBuffer.ReadFull(int(bodySize))
+		// }
+
+		tcpConnection.curReadPacketHeader = nil
+		return newPacket, ErrNotSupport
+
 	}
 
 	return nil, ErrNotSupport
