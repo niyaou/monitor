@@ -9,8 +9,6 @@ import configApi from '../../../api/fc2/configApi'
 import { parseDataByProtocal } from './config2'
 import baseApi from '../../../api/fc2/baseApi';
 const defaultValue: object = {
-
-
     "Y": {
         "range": 0,
         "maxSpeed": 0
@@ -25,22 +23,7 @@ const defaultData: object = {
     "X": 0, "Y": 0
 }
 
-const TurretWorkStatus: React.FC<any> = (props) => {
-    const { workStatus } = props
-    const getAlertType = (workStatus) => {
-        switch (workStatus) {
-            case 'work':
-                return 'success'
-            case 'idle':
-                return 'info'
-            default:
-                return 'warning'
-        }
-    }
 
-    const alertType = getAlertType(workStatus)
-    return (<Alert message={workStatus} type={alertType} showIcon />)
-}
 
 const TurretStatus: React.FC<any> = (props) => {
     const { data } = props
@@ -64,7 +47,6 @@ const TurretStatus: React.FC<any> = (props) => {
 
 
 
-
 const AngleConfig: React.FC = () => {
     const { state, dispatch } = useContext(configDataContext);
     const [angleForm] = Form.useForm();
@@ -73,13 +55,14 @@ const AngleConfig: React.FC = () => {
     const [setAngleLoading, setSetAngleLoading] = useState(false);
 
     const setAngle = (values) => {
-        turretService.setAngle(values)
+        console.log('set angle',values)
+        baseApi.postReq('RotaryTableCommand',`MOV:X${values.X.range}`)
             .then(function (data) {
                 notification.success({
-                    message: `操作成功`,
+                    message: `设置方位角成功`,
                     // description: '设置角度范围成功。',
                     placement: 'topRight',
-                    duration: 1,
+                    duration: 2,
                 });
                 // setData(data)
                 // setWorkStatus(data.workStatus)
@@ -87,40 +70,39 @@ const AngleConfig: React.FC = () => {
             .catch(function (error) {
                 console.error(error);
                 notification.error({
-                    message: `操作失败`,
+                    message: `设置方位角失败`,
+                    description: `${error}`,
+                });
+            })
+            .finally(() => { setSetAngleLoading(false) })
+            baseApi.postReq('RotaryTableCommand',`MOV:Y${values.Y.range}`)
+            .then(function (data) {
+                notification.success({
+                    message: `设置俯仰角成功`,
+                    // description: '设置角度范围成功。',
+                    placement: 'topRight',
+                    duration: 2,
+                });
+                // setData(data)
+                // setWorkStatus(data.workStatus)
+            })
+            .catch(function (error) {
+                console.error(error);
+                notification.error({
+                    message: `设置俯仰角失败`,
                     description: `${error}`,
                 });
             })
             .finally(() => { setSetAngleLoading(false) })
     };
 
-    const setPartAngle = (values) => {
-        turretService.setPartAngle(values)
-            .then(function (data) {
-                notification.success({
-                    message: `操作成功`,
-                    placement: 'topRight',
-                    duration: 1,
-                });
-            })
-            .catch(function (error) {
-                console.error(error);
-                notification.error({
-                    message: `操作失败`,
-                    description: `${error}`,
-                });
-            })
-            .finally(() => { setPartAngleName(''); setSetAngleLoading(false) })
-    };
+
 
     const onFinish = (values: any) => {
         if (setAngleLoading) {
             setAngle(values)
         } else if (partAngleName !== '') {
-            setPartAngle({
-                name: partAngleName,
-                value: values[partAngleName]['range']
-            })
+ 
         } else {
             console.warn("no next step!");
         }
@@ -181,6 +163,7 @@ const AngleConfig: React.FC = () => {
 
 
 const SessionConfig: React.FC<any> = (props) => {
+
     const [sessionForm] = Form.useForm();
     const [startLoading, setStartLoading] = useState(false);
     const [partAngleName, setPartAngleName] = useState('');
@@ -235,7 +218,51 @@ const SessionConfig: React.FC<any> = (props) => {
             });
         }
     }
-
+    const setAngle = (values) => {
+        console.log('set angle',values)
+        
+        baseApi.postReq('RotaryTableCommand',`MOV:X${values.X.range}`)
+            .then(function (data) {
+                notification.success({
+                    message: `设置方位角成功`,
+                    // description: '设置角度范围成功。',
+                    placement: 'topRight',
+                    duration: 2,
+                });
+                // setData(data)
+                // setWorkStatus(data.workStatus)
+            })
+            .catch(function (error) {
+                console.error(error);
+                notification.error({
+                    message: `设置方位角失败`,
+                    description: `${error}`,
+                });
+            })
+           
+            baseApi.postReq('RotaryTableCommand',`MOV:Y${values.Y.range}`)
+            .then(function (data) {
+                notification.success({
+                    message: `设置俯仰角成功`,
+                    // description: '设置角度范围成功。',
+                    placement: 'topRight',
+                    duration: 2,
+                });
+                // setData(data)
+                // setWorkStatus(data.workStatus)
+            })
+            .catch(function (error) {
+                console.error(error);
+                notification.error({
+                    message: `设置俯仰角失败`,
+                    description: `${error}`,
+                });
+            })
+            .finally(() => { setSetAngleLoading(false) })
+    };
+useEffect(()=>{
+    console.log('current',current)
+},[current])
 
     const initialSessionParam = (sessionForm: any) => {
         //解析连续发波参数，初始化数据
@@ -243,7 +270,7 @@ const SessionConfig: React.FC<any> = (props) => {
 
 
         let _azStep = []
-        if (sessionForm.AZStep.range > 0) {
+        if (sessionForm.XStep.range > 0) {
             for (let i = sessionForm.XMin.range; i <= sessionForm.XMax.range; i += sessionForm.XStep.range) {
                 _azStep.push(i)
             }
@@ -269,6 +296,7 @@ const SessionConfig: React.FC<any> = (props) => {
         param.duration = sessionForm.Duration.range
         console.log("🚀 ~ file: turret.tsx ~ line 438 ~ initialSessionParam ~ param", param)
         setSessionParams(param)
+        return cloneDeep(param)
     }
 
     const startSequence = (sessionParams) => {
@@ -318,42 +346,23 @@ const SessionConfig: React.FC<any> = (props) => {
 
             _params.waitTrigger = false
             setSessionParams(_params)
+            setAngle(values)
             turretService.setAngle(values).then(() => {
                 notification.success({
-                    message: `转台设置成功${JSON.stringify(values)}`,
+                    message: `转台启动成功${JSON.stringify(values)}`,
                     // description: '设置角度范围成功。',
                     placement: 'topRight',
                     duration: 3,
                 });
-                setTimeout(() => {
-                    turretService.start()
-                        .then(function (data) {
-                            notification.success({
-                                message: `转台启动成功${JSON.stringify(values)}`,
-                                // description: '设置角度范围成功。',
-                                placement: 'topRight',
-                                duration: 5,
-                            });
-
-                        })
-                }, 600)
-
             })
-                .catch(function (error) {
-                    console.error(error);
-                    notification.error({
-                        message: `转台操作失败`,
-                        description: `${error}`,
-                    });
-                })
-                .finally(() => { setSetAngleLoading(false) })
+               
 
         }, sessionParams.duration * 1000)
 
     }
 
     useEffect(() => {
-        if (data.workStatus === 'idle') {
+        if (data['X']==current.X && data['Y']==current.Y) {
             startSequence(sessionParams)
         }
     }, [data])
@@ -363,16 +372,16 @@ const SessionConfig: React.FC<any> = (props) => {
     // }, [sessionParams])
 
 
-    const getAlertType = (workStatus) => {
-        switch (workStatus) {
-            case 'work':
-                return 'success'
-            case 'idle':
-                return 'info'
-            default:
-                return 'warning'
-        }
-    }
+    // const getAlertType = (workStatus) => {
+    //     switch (workStatus) {
+    //         case 'work':
+    //             return 'success'
+    //         case 'idle':
+    //             return 'info'
+    //         default:
+    //             return 'warning'
+    //     }
+    // }
 
     return (
         <Card title="连续采集" size='small' extra={[
@@ -398,7 +407,9 @@ const SessionConfig: React.FC<any> = (props) => {
                 onFinish={(v) => {
 
                     console.log("🚀 ~ file: turret.tsx ~1 line 380 ~ v", v)
-                    initialSessionParam(v)
+                  let params =   initialSessionParam(v)
+                  startSequence(params)
+           
                     dispatch({ type: actionTypes.FC_SESSION, ...{ payload: { flag: sessionFlag.FLAG_START_SESSION } } })
 
                 }}
@@ -500,7 +511,7 @@ const TurretTable: React.FC = () => {
         getStatus()
         const timeoutID = setInterval(
             getStatus
-            , 500000);
+            , 5000);
         return () => {
             clearInterval(timeoutID)
         }
@@ -512,56 +523,58 @@ const TurretTable: React.FC = () => {
         stop()
     }, [endLoading])
 
-    useEffect(() => {
-        if (startLoading === false)
-            return
-        turretService.start()
-            .then(function (data) {
-                notification.success({
-                    message: `操作成功`,
-                    // description: '开始运行成功。',
-                    placement: 'topRight',
-                    duration: 1,
-                });
-                // setData(data)
-                // setWorkStatus(data.workStatus)
-            })
-            .catch(function (error) {
-                console.error(error);
-                notification.error({
-                    message: `操作失败1`,
-                    description: `${error}`,
-                });
-            })
-            .finally(() => { setStartLoading(false) })
-    }, [startLoading]);
+    // useEffect(() => {
+    //     if (startLoading === false)
+    //         return
+    //     turretService.start()
+    //         .then(function (data) {
+    //             notification.success({
+    //                 message: `操作成功`,
+    //                 // description: '开始运行成功。',
+    //                 placement: 'topRight',
+    //                 duration: 1,
+    //             });
+    //             // setData(data)
+    //             // setWorkStatus(data.workStatus)
+    //         })
+    //         .catch(function (error) {
+    //             console.error(error);
+    //             notification.error({
+    //                 message: `操作失败1`,
+    //                 description: `${error}`,
+    //             });
+    //         })
+    //         .finally(() => { setStartLoading(false) })
+    // }, [startLoading]);
 
-    const stop = () => {
-        turretService.stop()
-            .then(function (data) {
-                notification.success({
-                    message: `操作成功`,
-                    // description: '停止运行成功。',
-                    placement: 'topRight',
-                    duration: 1,
-                });
-                // setData(data)
-                // setWorkStatus(data.workStatus)
-            })
-            .catch(function (error) {
-                console.error(error);
-                notification.error({
-                    message: `操作失败2`,
-                    description: `${error}`,
-                });
-            })
-            .finally(() => { setEndLoading(false) })
-    };
+    // const stop = () => {
+    //     turretService.stop()
+    //         .then(function (data) {
+    //             notification.success({
+    //                 message: `操作成功`,
+    //                 // description: '停止运行成功。',
+    //                 placement: 'topRight',
+    //                 duration: 1,
+    //             });
+    //             // setData(data)
+    //             // setWorkStatus(data.workStatus)
+    //         })
+    //         .catch(function (error) {
+    //             console.error(error);
+    //             notification.error({
+    //                 message: `操作失败2`,
+    //                 description: `${error}`,
+    //             });
+    //         })
+    //         .finally(() => { setEndLoading(false) })
+    // };
 
     const getStatus = () => {
 
-        baseApi.getReq('RotartTableCommandAcknowledge').then(function (data) {
-            setData(data)
+        baseApi.getReq('RotaryTableCommandAcknowledge').then(function (data) {
+            let j = data.data.commandPayload
+            console.log(data,j,JSON.parse(j))
+            setData(JSON.parse(j))
             // setWorkStatus(data.workStatus)
         }).catch(function (error) {
             console.error(error);

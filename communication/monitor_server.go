@@ -420,7 +420,8 @@ func RotaryTableCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
 	_respons["code"] = 500
 	_respons["data"] = ""
 	_respons["msg"] = ""
-
+	ack := &pb.RotaryCommand{}
+	ack.CommandPayload = "{\"X\":0,\"Y\":0}"
 	b := _monitorViewServer.BaseServer.GetBroker()
 	if b == nil {
 		logger.Info("Acknowledged bridge is nil---------")
@@ -449,7 +450,7 @@ func RotaryTableCommandAcknowledge(rw http.ResponseWriter, req *http.Request) {
 		return
 	}
 	count := 20
-	ack := &pb.RotaryCommand{}
+	// ack := &pb.RotaryCommand{}
 	for {
 		<-updateTicker.C
 		if count == 0 {
